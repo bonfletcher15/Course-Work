@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cybersecurity Tool Aggregator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+</head>
+<body>
+<div class="container">
+    <div class="sidebar">
+        <button class="full-history-btn" onclick="openHistoryModal()">Full History</button>        
+        <div class="search-section">
+            <select id="filter-type" class="filter-select">
+                <option value="">Type</option>
+                <option value="file">File</option>
+                <option value="url">URL</option>
+                <option value="ip">IP</option>
+              </select>
+              <select id="filter-severity" class="filter-select">
+                <option value="">Severity</option>
+                <option value="clean">Clean</option>
+                <option value="suspicious">Suspicious</option>
+                <option value="malicious">Malicious</option>
+              </select>
+        </div>
+        <ul class="history-list" id="recent-scans-list">
+            <li>example.pdf - Clean</li>
+            <li>google.com - Suspicious</li>
+        </ul>
+    </div>
+    <div class="main">
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('file')">File Analysis</button>
+            <button class="tab-button" onclick="showTab('url')">URL Analysis</button>
+            <button class="tab-button" onclick="showTab('search')">Search</button>
+        </div>
+        <div class="tab-content" id="file-tab">
+            <h3>Upload a file to scan</h3>
+            <form action="/upload" method="POST" enctype="multipart/form-data">
+                <input type="file" name="file" required>
+                <button type="submit">Scan File</button>
+            </form>
+
+            {% if filename and active_tab == 'file' %}
+            <p style="color: green">File uploaded: {{ filename }}</p>
+            {% if created_at %}
+            <p><strong>Analysis Time:</strong> {{ created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            {% endif %}
+
+            {% if vt_results and active_tab == 'file' %}
+            <h3>VirusTotal Summary</h3>
+            <ul>
+              {% for key, value in vt_results.items() %}
+              <li><strong>{{ key.capitalize() }}:</strong> {{ value }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}            
+
+            {% if vt_details and active_tab == 'file' %}
+            <h3>File Details</h3>
+            <ul>
+              {% for key, value in vt_details.items() %}
+              <li><strong>{{ key.replace('_', ' ').capitalize() }}:</strong> {{ value }}</li>
+              {% endfor %}
+            </ul>
+            <a href="{{ url_for('download_report_txt', input_value=scan_result.input_value) }}">
+                <button>Download Report</button>
+            </a>
+            {% endif %}            
+            {% endif %}
+      </div>
+
+      <div class="tab-content" id="url-tab" style="display:none;">
+        <h3>Scan a URL</h3>
+        <form action="/scan_url" method="POST">
+            <input type="url" name="url_input" placeholder="Enter URL to scan" style="width: 60%; padding: 8px;" required oninvalid="this.setCustomValidity('Please enter a valid URL')"
+            oninput="this.setCustomValidity('')">
+            <button type="submit">Scan URL</button>
+        </form>
+
+        {% if error_message %}
+        <p style="color: red;">{{ error_message }}</p>
+        {% endif %}
+
+        {% if url_input and active_tab == 'url' %}
+        <p style="color: green">URL scanned: {{ url_input }}</p>
+        {% if vt_results %}
+        <h3>VirusTotal Summary</h3>
+        <ul>
+            {% for key, value in vt_results.items() %}
+            <li><strong>{{ key.capitalize() }}:</strong> {{ value }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if vt_details %}
+        <h3>URL Details</h3>
+        <ul>
+            {% for key, value in vt_details.items() %}
+            <li><strong>{{ key.replace('_', ' ').capitalize() }}:</strong> {{ value }}</li>
+            {% endfor %}
+        </ul>
+        <a href="{{ url_for('download_report_txt', input_value=scan_result.input_value) }}">
+            <button>Download Report</button>
+        </a>        
+        {% endif %}
+        {% endif %}
+
+    </div>
+      
+        <div class="tab-content" id="search-tab" style="display:none;">
+            <h3>Search by hash, IP, or domain</h3>
+            <form action="/scan_other" method="POST">
+                <input type="text" name="search_input" placeholder="Enter hash, IP, or domain" style="width: 60%; padding: 8px;" required>
+                <button type="submit">Search</button>
+            </form>
+
+            {% if error_message and active_tab == 'search' %}
+            <p style="color: red;">{{ error_message }}</p>
+            {% endif %}
+        
+            {% if search_input and active_tab == 'search' %}
+            <p style="color: green">Search input: {{ search_input }}</p>
+            {% endif %}
+
+
+            {% if vt_results and active_tab == 'search' %}
+            <h3>VirusTotal Summary</h3>
+            <ul>
+              {% for key, value in vt_results.items() %}
+              <li><strong>{{ key.capitalize() }}:</strong> {{ value }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}            
+
+            {% if vt_details and active_tab == 'search' %}
+            <h3>Details</h3>
+            <ul>
+              {% for key, value in vt_details.items() %}
+              <li><strong>{{ key.replace('_', ' ').capitalize() }}:</strong> {{ value }}</li>
+              {% endfor %}
+            </ul>
+            <a href="{{ url_for('download_report_txt', input_value=search_input) }}">
+                <button>Download Report</button>
+            </a>
+            {% endif %}            
+
+      </div>      
+    </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const activeTab = "{{ active_tab|default('file') }}";
+    showTab(activeTab);
+  });
+</script>
+
+<div id="history-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:20px; max-height:80vh; overflow-y:auto; width:800px; position:relative;">
+      <button class="close-btn" style="position:absolute; top:10px; right:10px;">X</button>
+      <h2>Scan History</h2>
+      <ul id="history-list"></ul>
+    </div>
+  </div>  
+
+</body>
+</html>
